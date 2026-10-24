@@ -15,3 +15,13 @@ tags = ["Paint", "Mesh"]
 blender_version_min = "5.2.0"
 
 license = ["SPDX:GPL-3.0-or-later"]
+
+[build]
+paths_exclude_pattern = [
+  "__pycache__/",
+  "/.git/",
+  "/.github/",
+  "/.gitignore",
+  "/docs/",
+  "/*.zip",
+]

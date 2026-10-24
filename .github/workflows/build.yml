@@ -1,0 +1,52 @@
+name: Build extension
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: .github/workflows/build.yml
+
+      # The bpy wheel ships Blender's extension build tool.
+      - name: Install Blender 5.2 (bpy)
+        run: pip install bpy==5.2.3
+
+      - name: Validate and build
+        run: |
+          EXT=$(python -c "import glob, site; print(glob.glob(site.getsitepackages()[0] + '/bpy/*/scripts/addons_core/bl_pkg/cli/blender_ext.py')[0])")
+          python "$EXT" validate .
+          mkdir dist
+          python "$EXT" build --source-dir . --output-dir dist
+          ls dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: color_data_master
+          path: dist/*.zip
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(python -c "import tomllib; print(tomllib.load(open('blender_manifest.toml', 'rb'))['version'])")
+          if [ "${GITHUB_REF_NAME}" != "v${VERSION}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match manifest version ${VERSION}" >&2
+            exit 1
+          fi
+          gh release create "${GITHUB_REF_NAME}" dist/*.zip --title "Color Data Master ${VERSION}" --generate-notes

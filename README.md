@@ -4,9 +4,15 @@ A Blender 5.2 LTS extension for editing, converting and transferring color chann
 
 ## Install
 
-Edit > Preferences > Get Extensions > the dropdown at the top right > **Install from Disk**, and pick `color_data_master-1.0.0.zip`.
+Download `color_data_master-<version>.zip` from [Releases](https://github.com/BusterCharlie/color-data-master/releases). Then in Edit > Preferences > Get Extensions, open the dropdown at the top right, choose **Install from Disk**, and pick the zip.
 
-To work on the code, link or copy the `color_data_master` folder into your extensions folder (`%APPDATA%\Blender Foundation\Blender\5.2\extensions\user_default\`).
+To work on the code, add the folder that holds your `color_data_master` clone as a local repository (Get Extensions > Repositories > **+** > Add Local Repository). Restart Blender after pulling changes.
+
+## Building
+
+GitHub Actions validates and builds the zip on every push and pull request. Download it from the run's **Artifacts**. To publish a release, bump `version` in `blender_manifest.toml`, merge, then push a matching tag (for example `git tag v1.1.0 && git push origin v1.1.0`). The zip is then attached to a new release.
+
+To build locally, run `blender --command extension build` in this folder.
 
 The panel is in the 3D Viewport sidebar (N), on the **Color Data** tab, in Object, Vertex Paint and Texture Paint mode.
 
