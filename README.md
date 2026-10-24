@@ -33,7 +33,7 @@ The grayscale brush sliders follow the same setting. The panel shows the stored 
 ## Tools
 
 - **Brush:** colors or grayscale values, Mix / Add / Sub / Blur. These switch to the essentials Paint Hard or Blur brush when needed. **X** flips colors and **V** opens the pie menu.
-- **Channels:** Fill, Clear, Invert, Posterize, Remap, Blur, and Random Island Values on the active channels. Vertex and face selection masks are respected, in Texture Paint too.
+- **Channels:** Fill, Clear, Invert, Posterize, Remap, Blur, and Random Island Values on the active channels (random, or evenly spaced between Min and Max with Order Based). Vertex and face selection masks are respected, in Texture Paint too.
 - **Isolate Channel:** copies one channel to a temporary grayscale layer (`CDM-ISO_<channel>_<name>`). Paint it with any tool, then use **Apply** or **Discard**. This works on color attributes and textures.
 - **Transfer:** pick a source and destination from Color, Texture, Weights, UV and Normals. Modes are Channel, Channel to RGB, All Channels and Luminance, with Replace / Add / Subtract / Multiply / Divide / Lighten / Darken.
   - A **mesh layer to a texture** is drawn through a UV map, with padding around the UV islands.
@@ -44,5 +44,5 @@ The grayscale brush sliders follow the same setting. The panel shows the stored 
 ## Notes
 
 - Texture edits change the image in memory. Save the image (Image > Save) to keep them.
-- Islands are found by mesh connectivity. UV seams don't split them.
+- Islands are found by mesh connectivity. With **Split at UV Seams** on (the default, like the original add-on), UV seams split them too.
 - Vertex Color Master's isolate layers (`VCM-ISO_...`) are not recognised. Apply them in the old add-on first.

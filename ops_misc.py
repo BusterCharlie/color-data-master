@@ -12,7 +12,7 @@ from mathutils import Vector
 
 from .core import (
     active_target, channel_mask, color_owner, corner_selection_mask, isolated_info,
-    loop_vertex_indices, paint_settings, poll_mesh, srgb_to_linear,
+    loop_face_indices, loop_vertex_indices, paint_settings, poll_mesh, srgb_to_linear,
 )
 from .ops_channel import write_corner_values
 from .props import CHANNEL_ITEMS
@@ -109,14 +109,10 @@ class CDM_OT_flip_colors(bpy.types.Operator):
 # ---------------------------------------------------------------------------
 # Mesh islands
 
-def vertex_islands(mesh):
-    """Island id per vertex (connected through edges)."""
-    nv = len(mesh.vertices)
-    labels = np.arange(nv, dtype=np.int64)
-    edges = np.empty(len(mesh.edges) * 2, dtype=np.int64)
-    mesh.edges.foreach_get("vertices", edges)
-    a, b = edges.reshape(-1, 2).T
-    while True:
+def _connected_labels(n, a, b):
+    """Component id per element, given pairs (a, b) of linked elements."""
+    labels = np.arange(n, dtype=np.int64)
+    while len(a):
         m = np.minimum(labels[a], labels[b])
         new = labels.copy()
         np.minimum.at(new, a, m)
@@ -127,6 +123,32 @@ def vertex_islands(mesh):
         labels = new
     _, ids = np.unique(labels, return_inverse=True)
     return ids
+
+
+def vertex_islands(mesh):
+    """Island id per vertex (connected through edges)."""
+    edges = np.empty(len(mesh.edges) * 2, dtype=np.int64)
+    mesh.edges.foreach_get("vertices", edges)
+    a, b = edges.reshape(-1, 2).T
+    return _connected_labels(len(mesh.vertices), a, b)
+
+
+def face_islands(mesh, split_seams=False):
+    """Island id per face. With split_seams, faces only link across non-seam edges."""
+    if not split_seams:
+        first = np.empty(len(mesh.polygons), dtype=np.int64)
+        mesh.polygons.foreach_get("loop_start", first)
+        return vertex_islands(mesh)[loop_vertex_indices(mesh)[first]]
+    loop_edge = np.empty(len(mesh.loops), dtype=np.int64)
+    mesh.loops.foreach_get("edge_index", loop_edge)
+    seam = np.empty(len(mesh.edges), dtype=bool)
+    mesh.edges.foreach_get("use_seam", seam)
+    loop_face = loop_face_indices(mesh)
+    order = np.argsort(loop_edge, kind="stable")
+    e, f = loop_edge[order], loop_face[order]
+    # Loops sorted by edge: neighbours on the same edge are faces sharing it.
+    link = (e[1:] == e[:-1]) & ~seam[e[1:]]
+    return _connected_labels(len(mesh.polygons), f[:-1][link], f[1:][link])
 
 
 def hsv_to_rgb(h, s, v):
@@ -158,6 +180,12 @@ class IslandOperator:
     merge_similar: BoolProperty(
         name="Merge Similar", default=False,
         description="Give islands with the same face count the same color")
+    split_seams: BoolProperty(
+        name="Split at UV Seams", default=True,
+        description="Treat parts of a mesh separated by UV seams as separate islands")
+    order_based: BoolProperty(
+        name="Order Based", default=False,
+        description="Spread values evenly by island order instead of randomly")
 
     @classmethod
     def poll(cls, context):
@@ -165,10 +193,7 @@ class IslandOperator:
 
     def island_keys(self, mesh):
         """Per-face island key and the list of keys in island order."""
-        ids = vertex_islands(mesh)
-        first = np.empty(len(mesh.polygons), dtype=np.int64)
-        mesh.polygons.foreach_get("loop_start", first)
-        face_island = ids[loop_vertex_indices(mesh)[first]]
+        face_island = face_islands(mesh, self.split_seams)
         if self.merge_similar:
             counts = np.bincount(face_island)
             return counts[face_island], np.unique(counts[face_island])
@@ -176,7 +201,6 @@ class IslandOperator:
 
     def write(self, context, target, face_rgba, space, channels):
         mesh = context.active_object.data
-        from .core import loop_face_indices
         corners = face_rgba[loop_face_indices(mesh)]
         mask = corner_selection_mask(mesh) if context.active_object.mode != 'OBJECT' else None
         err = write_corner_values(context, target, corners, channels, space, mask)
@@ -197,9 +221,6 @@ class CDM_OT_random_island_colors(IslandOperator, bpy.types.Operator):
     base_hue: FloatProperty(name="H", default=0.0, min=0.0, max=1.0)
     base_saturation: FloatProperty(name="S", default=1.0, min=0.0, max=1.0)
     base_value: FloatProperty(name="V", default=1.0, min=0.0, max=1.0)
-    order_based: BoolProperty(
-        name="Order Based", default=False,
-        description="Spread values evenly by island order instead of randomly")
 
     def execute(self, context):
         target = active_target(context)
@@ -238,6 +259,7 @@ class CDM_OT_random_island_colors(IslandOperator, bpy.types.Operator):
             row = col.row(align=True)
             row.prop(self, use, text=f"Randomize {self.bl_rna.properties[use].name}")
             row.prop(self, base, slider=True)
+        layout.prop(self, "split_seams")
         layout.prop(self, "merge_similar")
         row = layout.row()
         row.prop(self, "order_based")
@@ -268,7 +290,12 @@ class CDM_OT_random_island_channels(IslandOperator, bpy.types.Operator):
         face_key, keys = self.island_keys(mesh)
         rng = np.random.default_rng(self.random_seed)
         lo, hi = sorted((self.value_min, self.value_max))
-        island_rgba = (lo + rng.random((len(keys), 4)) * (hi - lo)).astype(np.float32)
+        n = len(keys)
+        if self.order_based and not self.merge_similar:
+            t = np.repeat((np.arange(n) / max(n - 1, 1))[:, None], 4, axis=1)
+        else:
+            t = rng.random((n, 4))
+        island_rgba = (lo + t * (hi - lo)).astype(np.float32)
         face_rgba = island_rgba[np.searchsorted(keys, face_key)]
         chans = channel_mask('RGB') if isolated_info(target) else channel_mask(self.channels)
         if isolated_info(target):
@@ -279,7 +306,11 @@ class CDM_OT_random_island_channels(IslandOperator, bpy.types.Operator):
     def draw(self, context):
         layout = self.layout
         layout.row(align=True).prop(self, "channels")
+        layout.prop(self, "split_seams")
         layout.prop(self, "merge_similar")
+        row = layout.row()
+        row.prop(self, "order_based")
+        row.enabled = not self.merge_similar
         layout.prop(self, "random_seed")
         layout.prop(self, "value_min", slider=True)
         layout.prop(self, "value_max", slider=True)
