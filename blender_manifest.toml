@@ -1,0 +1,17 @@
+schema_version = "1.0.0"
+
+id = "color_data_master"
+version = "1.0.0"
+name = "Color Data Master"
+tagline = "Edit and transfer channel data on vertex colors and textures"
+maintainer = "Buster Charlie"
+type = "add-on"
+
+# Built on ideas from Vertex Color Master by Andrew Palmer (GPL)
+website = "https://github.com/andyp123/blender_vertex_color_master"
+
+tags = ["Paint", "Mesh"]
+
+blender_version_min = "5.2.0"
+
+license = ["SPDX:GPL-3.0-or-later"]
