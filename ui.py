@@ -114,6 +114,8 @@ def draw_channels(context, layout, settings, target):
     row.operator("color_data_master.remap", text="Remap")
     row.operator("color_data_master.blur", text="Blur")
     col.operator("color_data_master.random_island_channels", text="Random Island Values")
+    if not iso:
+        col.operator("color_data_master.normalize_mask", text="Normalize Blend Mask")
 
 
 def draw_transfer(context, layout, settings):

@@ -172,6 +172,14 @@ class CDM_OT_remap(ChannelOperator, bpy.types.Operator):
     min1: FloatProperty(name="Output Min", default=0.0, min=0.0, max=1.0)
     max1: FloatProperty(name="Output Max", default=1.0, min=0.0, max=1.0)
     clamp: BoolProperty(name="Clamp", default=True, description="Clamp results to the output range")
+    auto_range: BoolProperty(
+        name="Auto Range", default=False,
+        description="Use the lowest and highest values found in the active channels "
+                    "(within the selection) as the input range")
+    per_channel: BoolProperty(
+        name="Per Channel", default=True,
+        description="Find the input range of each active channel separately, "
+                    "instead of one range shared by all of them")
 
     def execute(self, context):
         prep = self.setup(context)
@@ -179,11 +187,20 @@ class CDM_OT_remap(ChannelOperator, bpy.types.Operator):
             return {'CANCELLED'}
         settings, target, channels, mask = prep
         values = target.read(settings.value_space)
-        r0 = self.max0 - self.min0
-        if r0 == 0.0:
-            out = np.full_like(values, self.min1)
+        if self.auto_range:
+            lo0, hi0 = value_range(values, mask, channels, self.per_channel)
+            # show the measured range in the redo panel
+            used = lo0[channels]
+            if len(used):
+                self.min0, self.max0 = float(used.min()), float(hi0[channels].max())
         else:
-            out = (values - self.min0) * (self.max1 - self.min1) / r0 + self.min1
+            lo0 = np.full(4, self.min0, dtype=np.float32)
+            hi0 = np.full(4, self.max0, dtype=np.float32)
+        r0 = hi0 - lo0
+        flat = r0 == 0.0
+        out = (values - lo0) * (self.max1 - self.min1) / np.where(flat, 1.0, r0) + self.min1
+        # a channel with no spread maps to output min (manual) or stays unchanged (auto)
+        out[:, flat] = values[:, flat] if self.auto_range else self.min1
         if self.clamp:
             lo, hi = sorted((self.min1, self.max1))
             out = np.clip(out, lo, hi)
@@ -192,7 +209,13 @@ class CDM_OT_remap(ChannelOperator, bpy.types.Operator):
 
     def draw(self, context):
         layout = self.layout
+        row = layout.row(align=True)
+        row.prop(self, "auto_range")
+        sub = row.row(align=True)
+        sub.prop(self, "per_channel")
+        sub.enabled = self.auto_range
         col = layout.column(align=True)
+        col.enabled = not self.auto_range
         col.label(text="Input Range")
         col.prop(self, "min0", text="Min", slider=True)
         col.prop(self, "max0", text="Max", slider=True)
@@ -201,6 +224,42 @@ class CDM_OT_remap(ChannelOperator, bpy.types.Operator):
         col.prop(self, "min1", text="Min", slider=True)
         col.prop(self, "max1", text="Max", slider=True)
         layout.prop(self, "clamp")
+
+
+def value_range(values, mask, channels, per_channel):
+    """(low, high) per RGBA channel over the masked elements of the active channels."""
+    sel = values if mask is None else values[mask]
+    if len(sel) == 0:
+        return np.zeros(4, dtype=np.float32), np.ones(4, dtype=np.float32)
+    lo, hi = sel.min(axis=0), sel.max(axis=0)
+    if not per_channel and channels.any():
+        lo = np.full(4, lo[channels].min(), dtype=np.float32)
+        hi = np.full(4, hi[channels].max(), dtype=np.float32)
+    return lo.astype(np.float32), hi.astype(np.float32)
+
+
+class CDM_OT_normalize_mask(ChannelOperator, bpy.types.Operator):
+    """Scale RGB so it sums to at most 1 and store what is left in alpha, for 4-layer blend masks"""
+    bl_idname = "color_data_master.normalize_mask"
+    bl_label = "Normalize Blend Mask"
+
+    def execute(self, context):
+        prep = self.setup(context)
+        if prep is None:
+            return {'CANCELLED'}
+        settings, target, _channels, mask = prep
+        if isolated_info(target):
+            self.report({'ERROR'}, "Apply or discard the isolated channel first")
+            return {'CANCELLED'}
+        values = target.read(settings.value_space)
+        rgb = np.clip(values[:, :3], 0.0, 1.0)
+        total = rgb.sum(axis=1, keepdims=True)
+        rgb = np.where(total > 1.0, rgb / np.maximum(total, 1e-8), rgb)
+        out = values.copy()
+        out[:, :3] = rgb
+        out[:, 3] = np.clip(1.0 - rgb.sum(axis=1), 0.0, 1.0)
+        target.write(out, settings.value_space, mask=mask)
+        return {'FINISHED'}
 
 
 class CDM_OT_blur(ChannelOperator, bpy.types.Operator):
@@ -351,6 +410,7 @@ classes = (
     CDM_OT_invert,
     CDM_OT_posterize,
     CDM_OT_remap,
+    CDM_OT_normalize_mask,
     CDM_OT_blur,
     CDM_OT_transfer,
     CDM_OT_swap,
