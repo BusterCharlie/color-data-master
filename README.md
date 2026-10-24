@@ -4,15 +4,25 @@ A Blender 5.2 LTS extension for editing, converting and transferring color chann
 
 ## Install
 
-Download `color_data_master-<version>.zip` from [Releases](https://github.com/BusterCharlie/color-data-master/releases). Then in Edit > Preferences > Get Extensions, open the dropdown at the top right, choose **Install from Disk**, and pick the zip.
+The easiest way is to add this project as an extension repository, so Blender can install it and tell you about updates:
 
-To work on the code, add the folder that holds your `color_data_master` clone as a local repository (Get Extensions > Repositories > **+** > Add Local Repository). Restart Blender after pulling changes.
+1. Edit > Preferences > Get Extensions > **Repositories** (the dropdown at the top right) > **+** > **Add Remote Repository**.
+2. URL: `https://bustercharlie.github.io/color-data-master/index.json`. Tick **Check for Updates on Startup**.
+3. Search for Color Data Master in Get Extensions and click **Install**. New releases then show an **Update** button.
+
+Or download `color_data_master-<version>.zip` from [Releases](https://github.com/BusterCharlie/color-data-master/releases) and use **Install from Disk** in the same dropdown.
+
+To work on the code, add the folder that holds your `color_data_master` clone as a local repository (Repositories > **+** > Add Local Repository). Restart Blender after pulling changes.
 
 The panel is in the 3D Viewport sidebar (N), on the **Color Data** tab, in Object, Vertex Paint and Texture Paint mode.
 
 ## Building
 
-GitHub Actions validates and builds the zip on every push and pull request. Download it from the run's **Artifacts**. To publish a release, bump `version` in `blender_manifest.toml`, merge, then push a matching tag (for example `git tag v1.1.0 && git push origin v1.1.0`). The zip is then attached to a new release.
+GitHub Actions validates and builds the zip on every push and pull request. Download it from the run's **Artifacts**.
+
+Every merge to main also updates the extension repository on GitHub Pages. Blender only offers an update when `version` in `blender_manifest.toml` goes up, so bump it in any PR you want people to receive. Pages must be set to **Source: GitHub Actions** in the repository settings.
+
+To also attach the zip to a GitHub release, push a tag matching the version (for example `git tag v1.1.0 && git push origin v1.1.0`).
 
 To build locally, run `blender --command extension build` in this folder.
 

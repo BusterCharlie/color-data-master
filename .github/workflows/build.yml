@@ -7,12 +7,11 @@ on:
   pull_request:
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -22,7 +21,7 @@ jobs:
           cache: pip
           cache-dependency-path: .github/workflows/build.yml
 
-      # The bpy wheel ships Blender's extension build tool.
+      # The bpy wheel ships Blender's extension tool (blender_ext.py).
       - name: Install Blender 5.2 (bpy)
         run: pip install bpy==5.2.3
 
@@ -32,19 +31,59 @@ jobs:
           python "$EXT" validate .
           mkdir dist
           python "$EXT" build --source-dir . --output-dir dist
-          ls dist
+
+      # Static extension repository: Blender reads index.json to install and update.
+      - name: Generate repository index
+        run: |
+          EXT=$(python -c "import glob, site; print(glob.glob(site.getsitepackages()[0] + '/bpy/*/scripts/addons_core/bl_pkg/cli/blender_ext.py')[0])")
+          mkdir site
+          cp dist/*.zip site/
+          python "$EXT" server-generate --repo-dir site --html
 
       - uses: actions/upload-artifact@v4
         with:
           name: color_data_master
           path: dist/*.zip
 
+      - if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  # Blender only offers an update when the manifest version goes up.
+  pages:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: color_data_master
+          path: dist
+
       - name: Publish release
-        if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          VERSION=$(python -c "import tomllib; print(tomllib.load(open('blender_manifest.toml', 'rb'))['version'])")
+          VERSION=$(python3 -c "import tomllib; print(tomllib.load(open('blender_manifest.toml', 'rb'))['version'])")
           if [ "${GITHUB_REF_NAME}" != "v${VERSION}" ]; then
             echo "Tag ${GITHUB_REF_NAME} does not match manifest version ${VERSION}" >&2
             exit 1

@@ -8,7 +8,7 @@ maintainer = "Buster Charlie"
 type = "add-on"
 
 # Built on ideas from Vertex Color Master by Andrew Palmer (GPL)
-website = "https://github.com/andyp123/blender_vertex_color_master"
+website = "https://github.com/BusterCharlie/color-data-master"
 
 tags = ["Paint", "Mesh"]
 
