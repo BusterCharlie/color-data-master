@@ -34,7 +34,10 @@ To build locally, run `blender --command extension build` in this folder.
 - **Texture Paint:** the image being painted (the active material paint slot, or the canvas in Single Image mode).
 - **Edit Target** overrides that choice, for example to edit a texture from Object mode.
 
-<img src="docs/images/panel_vertex.png" alt="Color Data panel in Vertex Paint mode" width="500">
+<p>
+  <img src="docs/images/panel_vertex.png" alt="Color Data panel in Vertex Paint mode" width="49%">
+  <img src="docs/images/panel_texture.png" alt="Color Data panel in Texture Paint mode" width="49%">
+</p>
 
 ## Values: Stored, Linear, sRGB
 
@@ -93,7 +96,7 @@ Pick a source and destination from Color, Texture, Weights, UV and Normals. Mode
 
 <img src="docs/images/islands.png" alt="Random Island Colors with and without Split at UV Seams" width="100%">
 
-<img src="docs/images/island_values.png" alt="Random Island Colors on Value only, random versus Order Based" width="100%">
+<img src="docs/images/island_values.png" alt="Random Island Values on one channel, random versus Order Based" width="100%">
 
 ### Misc
 
