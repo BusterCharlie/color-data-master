@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "color_data_master"
-version = "1.2.0"
+version = "1.2.1"
 name = "Color Data Master"
 tagline = "Edit and transfer channel data on vertex colors and textures"
 maintainer = "Buster Charlie"

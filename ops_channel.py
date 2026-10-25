@@ -16,19 +16,20 @@ LUMA = np.array([0.299, 0.587, 0.114], dtype=np.float32)
 
 
 def blend(s, d, mode):
+    """Apply source s onto destination d, like a layer blend mode (d is the base)."""
     if mode == 'ADD':
-        return np.clip(s + d, 0.0, 1.0)
+        return np.clip(d + s, 0.0, 1.0)
     if mode == 'SUB':
-        return np.clip(s - d, 0.0, 1.0)
+        return np.clip(d - s, 0.0, 1.0)
     if mode == 'MUL':
-        return s * d
+        return d * s
     if mode == 'DIV':
-        safe = np.where(d == 0.0, 1.0, d)
-        return np.where(s == 0.0, 0.0, np.where(d == 0.0, 1.0, s / safe))
+        # dividing by zero leaves the destination unchanged
+        return np.clip(np.where(s == 0.0, d, d / np.where(s == 0.0, 1.0, s)), 0.0, 1.0)
     if mode == 'LIGHTEN':
-        return np.maximum(s, d)
+        return np.maximum(d, s)
     if mode == 'DARKEN':
-        return np.minimum(s, d)
+        return np.minimum(d, s)
     return s + d * 0.0  # REPLACE, broadcast to d's shape
 
 
