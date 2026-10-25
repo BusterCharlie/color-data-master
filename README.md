@@ -2,10 +2,7 @@
 
 A Blender 5.2 LTS extension for editing, converting and transferring color channel data on **vertex colors and textures** from one panel. It is a rebuild of Vertex Color Master (Andrew Palmer, GPL) for the color attribute system, with texture support added.
 
-<p>
-  <img src="docs/images/panel_vertex.png" alt="Color Data panel in Vertex Paint mode" width="49%">
-  <img src="docs/images/panel_texture.png" alt="Color Data panel in Texture Paint mode" width="49%">
-</p>
+<img src="docs/images/hero.png" alt="A sword's vertex colors baked to its texture, with the Color Data panel" width="100%">
 
 ## Install
 
@@ -37,6 +34,8 @@ To build locally, run `blender --command extension build` in this folder.
 - **Texture Paint:** the image being painted (the active material paint slot, or the canvas in Single Image mode).
 - **Edit Target** overrides that choice, for example to edit a texture from Object mode.
 
+<img src="docs/images/panel_vertex.png" alt="Color Data panel in Vertex Paint mode" width="500">
+
 ## Values: Stored, Linear, sRGB
 
 Byte color attributes and 8-bit sRGB images store sRGB numbers. Float attributes and float images store linear numbers. Shaders always read linear, so a byte mask value of 0.5 reaches a shader as about 0.21.
@@ -51,13 +50,15 @@ The **Values** dropdown sets how numbers typed into the tools are read:
 
 The grayscale brush sliders follow the same setting. The panel shows the stored value, and the 0-255 value on byte layers.
 
+<img src="docs/images/values.png" alt="The Values dropdown and the layer info line" width="300">
+
 ## Tools
 
 ### Brush
 
 Colors or grayscale values, Mix / Add / Sub / Blur. These switch to the essentials Paint Hard or Blur brush when needed. **X** flips colors and **V** opens the pie menu.
 
-<img src="docs/images/pie.png" alt="Pie menu while a channel is isolated" width="600">
+<img src="docs/images/pie.png" alt="The pie menu, normally and while a channel is isolated" width="100%">
 
 ### Channels
 
@@ -66,13 +67,15 @@ Fill, Clear, Invert, Posterize, Remap, Blur, and Random Island Values on the act
 - **Remap > Auto Range** stretches the values found in the selection to the output range, per channel or with one shared range.
 - **Normalize Blend Mask** scales RGB so it sums to at most 1 and puts the remainder in A, for 4-layer terrain or material blend masks.
 
-<img src="docs/images/remap_auto.png" alt="Remap with Auto Range" width="600">
+<img src="docs/images/remap_auto.png" alt="Remap with Auto Range" width="100%">
+
+<img src="docs/images/normalize.png" alt="A blend mask before and after Normalize Blend Mask" width="100%">
 
 ### Isolate Channel
 
 Copies one channel to a temporary grayscale layer (`CDM-ISO_<channel>_<name>`). Paint it with any tool, then use **Apply** or **Discard**. This works on color attributes and textures.
 
-<img src="docs/images/isolate.png" alt="Isolating the B channel, painting it, and applying it back" width="600">
+<img src="docs/images/isolate.png" alt="Isolating a channel, painting it, and applying it back" width="100%">
 
 ### Transfer
 
@@ -88,7 +91,9 @@ Pick a source and destination from Color, Texture, Weights, UV and Normals. Mode
 
 **Random Island Colors** gives each mesh island a random hue, saturation and/or value. **Random Island Values** does the same per channel, between Min and Max. Both can **Split at UV Seams**, **Merge Similar** islands (same face count), and use **Order Based** to space the values evenly instead of randomly.
 
-<img src="docs/images/islands.png" alt="Random Island Colors with and without Split at UV Seams" width="49%"> <img src="docs/images/island_values.png" alt="Random values versus Order Based" width="49%">
+<img src="docs/images/islands.png" alt="Random Island Colors with and without Split at UV Seams" width="100%">
+
+<img src="docs/images/island_values.png" alt="Random Island Colors on Value only, random versus Order Based" width="100%">
 
 ### Misc
 
