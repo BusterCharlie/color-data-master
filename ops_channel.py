@@ -3,7 +3,7 @@
 
 import bpy
 import numpy as np
-from bpy.props import BoolProperty, FloatProperty, FloatVectorProperty, IntProperty
+from bpy.props import BoolProperty, EnumProperty, FloatProperty, FloatVectorProperty, IntProperty
 
 from .core import (
     active_target, channel_index, channel_mask, color_owner, corner_selection_mask,
@@ -240,10 +240,40 @@ def value_range(values, mask, channels, per_channel):
     return lo.astype(np.float32), hi.astype(np.float32)
 
 
+RGBA_ITEMS = [(c, c, f"The {c} channel") for c in "RGBA"]
+
+
 class CDM_OT_normalize_mask(ChannelOperator, bpy.types.Operator):
-    """Scale RGB so it sums to at most 1 and store what is left in alpha, for 4-layer blend masks"""
+    """Scale R, G, B and A so they add up to 1, for 4-layer blend masks"""
     bl_idname = "color_data_master.normalize_mask"
     bl_label = "Normalize Blend Mask"
+
+    method: EnumProperty(
+        name="Method",
+        items=[
+            ('EQUAL', "Equal", "All four channels have the same priority and are scaled to add up to 1"),
+            ('REMAINDER', "Remainder", "The other three are scaled down to at most 1 in total, "
+                                        "and one channel gets what is left"),
+        ],
+        default='EQUAL',
+    )
+    remainder: EnumProperty(name="Remainder", items=RGBA_ITEMS, default='A',
+                            description="The channel that gets what the others leave")
+    fill: EnumProperty(
+        name="Empty",
+        items=[('NONE', "Leave", "Leave areas where every channel is 0 black")] + RGBA_ITEMS,
+        default='NONE',
+        description="Where every channel is 0, set this channel to 1",
+    )
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.row().prop(self, "method", expand=True)
+        if self.method == 'EQUAL':
+            layout.row().prop(self, "fill", expand=True)
+        else:
+            layout.row().prop(self, "remainder", expand=True)
 
     def execute(self, context):
         prep = self.setup(context)
@@ -254,14 +284,29 @@ class CDM_OT_normalize_mask(ChannelOperator, bpy.types.Operator):
             self.report({'ERROR'}, "Apply or discard the isolated channel first")
             return {'CANCELLED'}
         values = target.read(settings.value_space)
-        rgb = np.clip(values[:, :3], 0.0, 1.0)
-        total = rgb.sum(axis=1, keepdims=True)
-        rgb = np.where(total > 1.0, rgb / np.maximum(total, 1e-8), rgb)
-        out = values.copy()
-        out[:, :3] = rgb
-        out[:, 3] = np.clip(1.0 - rgb.sum(axis=1), 0.0, 1.0)
-        target.write(out, settings.value_space, mask=mask)
+        target.write(normalize_weights(values, self.method, self.remainder, self.fill),
+                     settings.value_space, mask=mask)
         return {'FINISHED'}
+
+
+def normalize_weights(values, method, remainder='A', fill='NONE'):
+    """Make the four channels of each row add up to 1 (see CDM_OT_normalize_mask)."""
+    w = np.clip(values, 0.0, 1.0).astype(np.float32)
+    total = w.sum(axis=1, keepdims=True)
+    if method == 'EQUAL':
+        empty = total[:, 0] < 1e-6
+        w = np.where(total < 1e-6, 0.0, w / np.maximum(total, 1e-6))
+        if fill != 'NONE':
+            w[empty, "RGBA".index(fill)] = 1.0
+        return w.astype(np.float32)
+    r = "RGBA".index(remainder)
+    others = [i for i in range(4) if i != r]
+    rest = w[:, others]
+    rest_total = rest.sum(axis=1, keepdims=True)
+    rest = np.where(rest_total > 1.0, rest / np.maximum(rest_total, 1e-8), rest)
+    w[:, others] = rest
+    w[:, r] = np.clip(1.0 - rest.sum(axis=1), 0.0, 1.0)
+    return w
 
 
 class CDM_OT_blur(ChannelOperator, bpy.types.Operator):
