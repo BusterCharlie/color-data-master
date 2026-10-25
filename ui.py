@@ -147,6 +147,8 @@ def draw_transfer(context, layout, settings):
         col = layout.column(align=True)
         col.prop_search(settings, "uv_map", context.active_object.data, "uv_layers", text="UV")
         col.prop(settings, "bake_padding")
+        if settings.dst_kind == 'IMAGE':
+            col.prop(settings, "clear_outside_uvs")
 
 
 def draw_misc(context, layout, settings, target, pie=False):

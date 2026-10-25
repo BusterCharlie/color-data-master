@@ -133,6 +133,13 @@ class ColorDataMasterSettings(bpy.types.PropertyGroup):
         description="Pixels to bleed outward from UV islands when writing to a texture",
         default=4, min=0, max=64,
     )
+    clear_outside_uvs: BoolProperty(
+        name="Clear Outside UVs",
+        description="When transferring from the mesh to a texture, set the written channels "
+                    "to 0 outside the UV islands and padding. Turn off to keep what the "
+                    "texture already has there, for example to bake several objects into one atlas",
+        default=True,
+    )
 
     # -- brush ----------------------------------------------------------
     use_grayscale: BoolProperty(

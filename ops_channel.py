@@ -403,6 +403,13 @@ class CDM_OT_transfer(bpy.types.Operator):
         if dst.kind == 'VGROUP' and mode in {'TO_RGB', 'RGBA'}:
             chans[:] = False
             chans[0] = True
+        # Mesh -> texture: everything outside the islands and padding becomes 0, unless a
+        # face selection limits the transfer (then only the selected islands are touched).
+        baked = src.domain == 'CORNER' and dst.domain == 'PIXEL'
+        if baked and settings.clear_outside_uvs and corner_selection_mask(src.mesh) is None:
+            outside = ~mask
+            out[np.ix_(outside, chans)] = 0.0
+            mask = None
         dst.write(out, space, chans, mask)
         return {'FINISHED'}
 
