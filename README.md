@@ -2,6 +2,8 @@
 
 A Blender 5.2 LTS extension for editing, converting and transferring color channel data on **vertex colors and textures** from one panel. It is a rebuild of Vertex Color Master (Andrew Palmer, GPL) for the color attribute system, with texture support added.
 
+<img src="docs/images/hero.png" alt="A sword's vertex colors baked to its texture, with the Color Data panel" width="100%">
+
 ## Install
 
 The easiest way is to add this project as an extension repository, so Blender can install it and tell you about updates:
@@ -32,6 +34,11 @@ To build locally, run `blender --command extension build` in this folder.
 - **Texture Paint:** the image being painted (the active material paint slot, or the canvas in Single Image mode).
 - **Edit Target** overrides that choice, for example to edit a texture from Object mode.
 
+<p>
+  <img src="docs/images/panel_vertex.png" alt="Color Data panel in Vertex Paint mode" width="49%">
+  <img src="docs/images/panel_texture.png" alt="Color Data panel in Texture Paint mode" width="49%">
+</p>
+
 ## Values: Stored, Linear, sRGB
 
 Byte color attributes and 8-bit sRGB images store sRGB numbers. Float attributes and float images store linear numbers. Shaders always read linear, so a byte mask value of 0.5 reaches a shader as about 0.21.
@@ -46,21 +53,61 @@ The **Values** dropdown sets how numbers typed into the tools are read:
 
 The grayscale brush sliders follow the same setting. The panel shows the stored value, and the 0-255 value on byte layers.
 
+<img src="docs/images/values.png" alt="The Values dropdown and the layer info line" width="300">
+
 ## Tools
 
-- **Brush:** colors or grayscale values, Mix / Add / Sub / Blur. These switch to the essentials Paint Hard or Blur brush when needed. **X** flips colors and **V** opens the pie menu.
-- **Channels:** Fill, Clear, Invert, Posterize, Remap, Blur, and Random Island Values on the active channels (random, or evenly spaced between Min and Max with Order Based). Vertex and face selection masks are respected, in Texture Paint too.
-  - **Remap > Auto Range** stretches the values found in the selection to the output range, per channel or with one shared range.
-  - **Normalize Blend Mask** makes R, G, B and A add up to 1, for 4-layer terrain or material blend masks.
+### Brush
+
+Colors or grayscale values, Mix / Add / Sub / Blur. These switch to the essentials Paint Hard or Blur brush when needed. **X** flips colors and **V** opens the pie menu.
+
+<img src="docs/images/pie.png" alt="The pie menu, normally and while a channel is isolated" width="100%">
+
+### Channels
+
+Fill, Clear, Invert, Posterize, Remap, Blur, and Random Island Values on the active channels. Vertex and face selection masks are respected, in Texture Paint too.
+
+- **Remap > Auto Range** stretches the values found in the selection to the output range, per channel or with one shared range.
+- **Normalize Blend Mask** makes R, G, B and A add up to 1, for 4-layer terrain or material blend masks.
   - **Equal** gives all four channels the same priority. Areas where every channel is 0 stay black, or **Empty** fills them with one channel.
   - **Remainder** scales three channels down to at most 1 in total and gives what is left to the fourth (A by default).
   - It works on the numbers the **Values** setting gives, so pick Linear if a shader reads the mask as blend weights.
-- **Isolate Channel:** copies one channel to a temporary grayscale layer (`CDM-ISO_<channel>_<name>`). Paint it with any tool, then use **Apply** or **Discard**. This works on color attributes and textures.
-- **Transfer:** pick a source and destination from Color, Texture, Weights, UV and Normals. Modes are Channel, Channel to RGB, All Channels and Luminance, with Replace / Add / Subtract / Multiply / Divide / Lighten / Darken.
-  - A **mesh layer to a texture** is drawn through a UV map, with padding around the UV islands.
-  - A **texture to a mesh layer** is sampled at each corner's UV.
-  - **Swap** exchanges a channel between two color layers or textures.
-- **Misc:** Random Island Colors, Linear and Circular Gradient, plus Blender's HSV, Brightness/Contrast and Dirty Vertex Colors in Vertex Paint.
+
+<img src="docs/images/remap_auto.png" alt="Remap with Auto Range" width="100%">
+
+<img src="docs/images/normalize.png" alt="A blend mask before normalizing, with Equal, and with the remainder in G" width="100%">
+
+<img src="docs/images/normalize_isolated.png" alt="The R channel isolated before and after normalizing" width="100%">
+
+### Isolate Channel
+
+Copies one channel to a temporary grayscale layer (`CDM-ISO_<channel>_<name>`). Paint it with any tool, then use **Apply** or **Discard**. This works on color attributes and textures.
+
+<img src="docs/images/isolate.png" alt="Isolating a channel, painting it, and applying it back" width="100%">
+
+### Transfer
+
+Pick a source and destination from Color, Texture, Weights, UV and Normals. Modes are Channel, Channel to RGB, All Channels and Luminance, with Replace / Add / Subtract / Multiply / Divide / Lighten / Darken.
+
+- A **mesh layer to a texture** is drawn through a UV map, with padding around the UV islands.
+- A **texture to a mesh layer** is sampled at each corner's UV.
+- **Swap** exchanges a channel between two color layers or textures.
+
+<img src="docs/images/transfer_bake.png" alt="Vertex colors baked to a texture with Transfer" width="100%">
+
+### Islands
+
+**Random Island Colors** gives each mesh island a random hue, saturation and/or value. **Random Island Values** does the same per channel, between Min and Max. Both can **Split at UV Seams**, **Merge Similar** islands (same face count), and use **Order Based** to space the values evenly instead of randomly.
+
+<img src="docs/images/islands.png" alt="Random Island Colors with and without Split at UV Seams" width="100%">
+
+<img src="docs/images/island_values.png" alt="Random Island Values on one channel, random versus Order Based" width="100%">
+
+### Misc
+
+Linear and Circular Gradient (drag in the viewport), plus Blender's HSV, Brightness/Contrast and Dirty Vertex Colors in Vertex Paint.
+
+<img src="docs/images/gradient_tool.gif" alt="Dragging a linear gradient" width="600">
 
 ## Notes
 
