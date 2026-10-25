@@ -88,4 +88,9 @@ jobs:
             echo "Tag ${GITHUB_REF_NAME} does not match manifest version ${VERSION}" >&2
             exit 1
           fi
-          gh release create "${GITHUB_REF_NAME}" dist/*.zip --title "Color Data Master ${VERSION}" --generate-notes
+          # a release made with GitHub's "Draft a new release" button already exists: just attach the zip
+          if gh release view "${GITHUB_REF_NAME}" > /dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" dist/*.zip --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" dist/*.zip --title "Color Data Master ${VERSION}" --generate-notes
+          fi
