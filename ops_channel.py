@@ -10,6 +10,7 @@ from .core import (
     isolated_info, poll_mesh,
 )
 from .data import COLOR_KINDS, Layer, convert_domain, pixel_selection_mask
+from .props import kind_channel
 from . import texture
 
 LUMA = np.array([0.299, 0.587, 0.114], dtype=np.float32)
@@ -337,8 +338,8 @@ class CDM_OT_transfer(bpy.types.Operator):
         current = dst.read(space)
         out = current.copy()
         chans = np.zeros(4, dtype=bool)
-        sidx = channel_index(settings.src_channel)
-        didx = channel_index(settings.dst_channel)
+        sidx = channel_index(kind_channel(src.kind, settings.src_channel))
+        didx = channel_index(kind_channel(dst.kind, settings.dst_channel))
         mode, op = settings.transfer_mode, settings.blend_mode
 
         if mode == 'CHANNEL':

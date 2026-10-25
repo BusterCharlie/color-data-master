@@ -125,13 +125,15 @@ def draw_transfer(context, layout, settings):
         kind = getattr(settings, f"{side}_kind")
         row = col.row(align=True)
         row.prop(settings, f"{side}_kind", text="", icon_only=True)
-        sub = row.split(factor=0.78, align=True)
+        # weights hold one value, so there is no channel to pick
+        sub = row if kind == 'VGROUP' else row.split(factor=0.78, align=True)
         args = _search_args(context, kind)
         if args:
             sub.prop_search(settings, f"{side}_name", *args, text="")
         else:
             sub.label(text="Custom Normals")
-        sub.prop(settings, f"{side}_channel", text="")
+        if kind != 'VGROUP':
+            sub.prop(settings, f"{side}_channel", text="")
     col = layout.column(align=True)
     row = col.row(align=True)
     row.prop(settings, "transfer_mode", text="")
