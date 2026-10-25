@@ -26,9 +26,9 @@ VALUE_SPACE_ITEMS = (
 BLEND_ITEMS = (
     ('REPLACE', "Replace", "Replace destination with source"),
     ('ADD', "Add", "Destination + source, clamped to 0-1"),
-    ('SUB', "Subtract", "Source - destination, clamped to 0-1"),
-    ('MUL', "Multiply", "Source x destination"),
-    ('DIV', "Divide", "Source / destination"),
+    ('SUB', "Subtract", "Destination - source, clamped to 0-1"),
+    ('MUL', "Multiply", "Destination x source"),
+    ('DIV', "Divide", "Destination / source, clamped to 0-1 (unchanged where source is 0)"),
     ('LIGHTEN', "Lighten", "Maximum of the two"),
     ('DARKEN', "Darken", "Minimum of the two"),
 )
