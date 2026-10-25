@@ -68,11 +68,16 @@ Colors or grayscale values, Mix / Add / Sub / Blur. These switch to the essentia
 Fill, Clear, Invert, Posterize, Remap, Blur, and Random Island Values on the active channels. Vertex and face selection masks are respected, in Texture Paint too.
 
 - **Remap > Auto Range** stretches the values found in the selection to the output range, per channel or with one shared range.
-- **Normalize Blend Mask** scales RGB so it sums to at most 1 and puts the remainder in A, for 4-layer terrain or material blend masks.
+- **Normalize Blend Mask** makes R, G, B and A add up to 1, for 4-layer terrain or material blend masks.
+  - **Equal** gives all four channels the same priority. Areas where every channel is 0 stay black, or **Empty** fills them with one channel.
+  - **Remainder** scales three channels down to at most 1 in total and gives what is left to the fourth (A by default).
+  - It works on the numbers the **Values** setting gives, so pick Linear if a shader reads the mask as blend weights.
 
 <img src="docs/images/remap_auto.png" alt="Remap with Auto Range" width="100%">
 
-<img src="docs/images/normalize.png" alt="A blend mask before and after Normalize Blend Mask" width="100%">
+<img src="docs/images/normalize.png" alt="A blend mask before normalizing, with Equal, and with the remainder in G" width="100%">
+
+<img src="docs/images/normalize_isolated.png" alt="The R channel isolated before and after normalizing" width="100%">
 
 ### Isolate Channel
 
