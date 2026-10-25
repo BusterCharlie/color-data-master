@@ -254,11 +254,12 @@ class CDM_OT_random_island_colors(IslandOperator, bpy.types.Operator):
     def draw(self, context):
         layout = self.layout
         col = layout.column(align=True)
+        col.label(text="Randomize")
         for label, use, base in (("Hue", "randomize_hue", "base_hue"),
                                  ("Saturation", "randomize_saturation", "base_saturation"),
                                  ("Value", "randomize_value", "base_value")):
             row = col.row(align=True)
-            row.prop(self, use, text=f"Randomize {label}")
+            row.prop(self, use, text=label)
             row.prop(self, base, slider=True)
         layout.prop(self, "split_seams")
         layout.prop(self, "merge_similar")
