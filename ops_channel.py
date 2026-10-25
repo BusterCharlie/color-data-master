@@ -10,25 +10,27 @@ from .core import (
     isolated_info, poll_mesh,
 )
 from .data import COLOR_KINDS, Layer, convert_domain, pixel_selection_mask
+from .props import kind_channel
 from . import texture
 
 LUMA = np.array([0.299, 0.587, 0.114], dtype=np.float32)
 
 
 def blend(s, d, mode):
+    """Apply source s onto destination d, like a layer blend mode (d is the base)."""
     if mode == 'ADD':
-        return np.clip(s + d, 0.0, 1.0)
+        return np.clip(d + s, 0.0, 1.0)
     if mode == 'SUB':
-        return np.clip(s - d, 0.0, 1.0)
+        return np.clip(d - s, 0.0, 1.0)
     if mode == 'MUL':
-        return s * d
+        return d * s
     if mode == 'DIV':
-        safe = np.where(d == 0.0, 1.0, d)
-        return np.where(s == 0.0, 0.0, np.where(d == 0.0, 1.0, s / safe))
+        # dividing by zero leaves the destination unchanged
+        return np.clip(np.where(s == 0.0, d, d / np.where(s == 0.0, 1.0, s)), 0.0, 1.0)
     if mode == 'LIGHTEN':
-        return np.maximum(s, d)
+        return np.maximum(d, s)
     if mode == 'DARKEN':
-        return np.minimum(s, d)
+        return np.minimum(d, s)
     return s + d * 0.0  # REPLACE, broadcast to d's shape
 
 
@@ -336,8 +338,8 @@ class CDM_OT_transfer(bpy.types.Operator):
         current = dst.read(space)
         out = current.copy()
         chans = np.zeros(4, dtype=bool)
-        sidx = channel_index(settings.src_channel)
-        didx = channel_index(settings.dst_channel)
+        sidx = channel_index(kind_channel(src.kind, settings.src_channel))
+        didx = channel_index(kind_channel(dst.kind, settings.dst_channel))
         mode, op = settings.transfer_mode, settings.blend_mode
 
         if mode == 'CHANNEL':

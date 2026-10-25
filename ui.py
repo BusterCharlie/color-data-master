@@ -61,7 +61,8 @@ def draw_brush(context, layout, settings, target, pie=False):
     owner = color_owner(context)
     iso = isolated_info(target)
     col = layout.column(align=True)
-    col.label(text="Brush")
+    if pie:
+        col.label(text="Brush")
     if not pie and not iso:
         col.prop(settings, "use_grayscale")
         col.prop(settings, "match_brush_to_active_channels")
@@ -120,19 +121,19 @@ def draw_channels(context, layout, settings, target):
 
 def draw_transfer(context, layout, settings):
     col = layout.column(align=True)
-    col.label(text="Transfer")
     for side in ("src", "dst"):
         kind = getattr(settings, f"{side}_kind")
         row = col.row(align=True)
-        split = row.split(factor=0.3, align=True)
-        split.prop(settings, f"{side}_kind", text="")
-        sub = split.split(factor=0.78, align=True)
+        row.prop(settings, f"{side}_kind", text="", icon_only=True)
+        # weights hold one value, so there is no channel to pick
+        sub = row if kind == 'VGROUP' else row.split(factor=0.78, align=True)
         args = _search_args(context, kind)
         if args:
             sub.prop_search(settings, f"{side}_name", *args, text="")
         else:
             sub.label(text="Custom Normals")
-        sub.prop(settings, f"{side}_channel", text="")
+        if kind != 'VGROUP':
+            sub.prop(settings, f"{side}_channel", text="")
     col = layout.column(align=True)
     row = col.row(align=True)
     row.prop(settings, "transfer_mode", text="")
@@ -148,10 +149,11 @@ def draw_transfer(context, layout, settings):
         col.prop(settings, "bake_padding")
 
 
-def draw_misc(context, layout, settings, target):
+def draw_misc(context, layout, settings, target, pie=False):
     obj = context.active_object
     col = layout.column(align=True)
-    col.label(text="Misc")
+    if pie:
+        col.label(text="Misc")
     if obj.mode == 'VERTEX_PAINT' and not isolated_info(target):
         col.operator("paint.vertex_color_hsv", text="Adjust HSV")
         col.operator("paint.vertex_color_brightness_contrast", text="Brightness / Contrast")
@@ -246,10 +248,16 @@ class CDM_MT_pie(bpy.types.Menu):
         target = active_target(context)
         iso = isolated_info(target)
         pie = self.layout.menu_pie()
-        draw_brush(context, pie.column(), settings, target, pie=True)   # left
-        draw_channels(context, pie.column(), settings, target)          # right
-        draw_misc(context, pie.column(), settings, target)              # bottom
-        col = pie.column()                                              # top
+
+        def column():
+            col = pie.column()
+            col.ui_units_x = 11  # pie items otherwise shrink to their first row
+            return col
+
+        draw_brush(context, column(), settings, target, pie=True)   # left
+        draw_channels(context, column(), settings, target)          # right
+        draw_misc(context, column(), settings, target, pie=True)    # bottom
+        col = column()                                              # top
         if iso:
             col.label(text=f"Isolated {iso[1]} of '{iso[0]}'")
             row = col.row(align=True)

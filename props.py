@@ -16,6 +16,42 @@ CHANNEL_ITEMS = (
     ('A', "A", "Alpha channel"),
 )
 
+# Channels each transfer layer type has. Weights are one value; UVs are U/V; normals X/Y/Z.
+# Numbers match CHANNEL_ITEMS so the stored choice survives switching type.
+_RGBA_ITEMS = tuple((i, n, d, k) for k, (i, n, d) in enumerate(CHANNEL_ITEMS))
+KIND_CHANNEL_ITEMS = {
+    'ATTR': _RGBA_ITEMS,
+    'IMAGE': _RGBA_ITEMS,
+    'VGROUP': (('R', "Weight", "Vertex group weight", 0),),
+    'UV': (('R', "U", "U coordinate", 0), ('G', "V", "V coordinate", 1)),
+    'NORMALS': (('R', "X", "Normal X", 0), ('G', "Y", "Normal Y", 1), ('B', "Z", "Normal Z", 2)),
+}
+
+
+def kind_channel(kind, channel):
+    """The channel to use for a layer type, falling back to the first one it has."""
+    valid = [item[0] for item in KIND_CHANNEL_ITEMS[kind]]
+    return channel if channel in valid else valid[0]
+
+
+def _src_channel_items(self, context):
+    return KIND_CHANNEL_ITEMS[self.src_kind]
+
+
+def _dst_channel_items(self, context):
+    return KIND_CHANNEL_ITEMS[self.dst_kind]
+
+
+def _clamp_channel(side):
+    def update(self, context):
+        prop = f"{side}_channel"
+        kind = getattr(self, f"{side}_kind")
+        count = len(KIND_CHANNEL_ITEMS[kind])
+        if self.get(prop, 0) >= count:
+            self[prop] = 0
+    return update
+
+
 VALUE_SPACE_ITEMS = (
     ('AUTO', "Stored", "Values as stored in the layer: sRGB for byte layers and 8-bit sRGB "
      "images, linear for float layers. Best for packed mask data"),
@@ -26,9 +62,9 @@ VALUE_SPACE_ITEMS = (
 BLEND_ITEMS = (
     ('REPLACE', "Replace", "Replace destination with source"),
     ('ADD', "Add", "Destination + source, clamped to 0-1"),
-    ('SUB', "Subtract", "Source - destination, clamped to 0-1"),
-    ('MUL', "Multiply", "Source x destination"),
-    ('DIV', "Divide", "Source / destination"),
+    ('SUB', "Subtract", "Destination - source, clamped to 0-1"),
+    ('MUL', "Multiply", "Destination x source"),
+    ('DIV', "Divide", "Destination / source, clamped to 0-1 (unchanged where source is 0)"),
     ('LIGHTEN', "Lighten", "Maximum of the two"),
     ('DARKEN', "Darken", "Minimum of the two"),
 )
@@ -135,11 +171,13 @@ class ColorDataMasterSettings(bpy.types.PropertyGroup):
     )
 
     # -- transfer -------------------------------------------------------
-    src_kind: EnumProperty(name="Source Type", items=LAYER_KINDS, default='ATTR')
+    src_kind: EnumProperty(name="Source Type", items=LAYER_KINDS, default='ATTR',
+                           update=_clamp_channel("src"))
     src_name: StringProperty(name="Source")
-    src_channel: EnumProperty(name="Source Channel", items=CHANNEL_ITEMS, default='R')
-    dst_kind: EnumProperty(name="Destination Type", items=LAYER_KINDS, default='ATTR')
+    src_channel: EnumProperty(name="Source Channel", items=_src_channel_items, default=0)
+    dst_kind: EnumProperty(name="Destination Type", items=LAYER_KINDS, default='ATTR',
+                           update=_clamp_channel("dst"))
     dst_name: StringProperty(name="Destination")
-    dst_channel: EnumProperty(name="Destination Channel", items=CHANNEL_ITEMS, default='G')
+    dst_channel: EnumProperty(name="Destination Channel", items=_dst_channel_items, default=1)
     transfer_mode: EnumProperty(name="Mode", items=TRANSFER_MODE_ITEMS, default='CHANNEL')
     blend_mode: EnumProperty(name="Blend", items=BLEND_ITEMS, default='REPLACE')
