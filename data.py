@@ -100,8 +100,12 @@ class Layer:
         return out
 
     # -- write -----------------------------------------------------------
-    def write(self, values, space, channels, mask=None):
-        """values: RGBA in this layer's domain. channels: bool[4] of channels to change."""
+    def write(self, values, space, channels, mask=None, min_weight=None):
+        """values: RGBA in this layer's domain. channels: bool[4] of channels to change.
+
+        min_weight: for vertex groups, vertices at or below it are removed from the group
+        instead of being given that weight. None keeps every vertex.
+        """
         if self.kind in COLOR_KINDS:
             self.target().write(values, space, mask=mask, channels=channels)
             return
@@ -109,7 +113,14 @@ class Layer:
             ch = int(np.argmax(channels)) if channels.any() else 0
             pts, has = corners_to_points(self.mesh, values[:, ch], mask)
             group = self.resolve()
-            for i in np.nonzero(has)[0]:
+            keep = has if min_weight is None else has & (pts > min_weight)
+            drop = has & ~keep
+            if drop.any():
+                # remove() raises for vertices that aren't in the group
+                members = {v.index for v in self.mesh.vertices
+                           if any(g.group == group.index for g in v.groups)}
+                group.remove([int(i) for i in np.nonzero(drop)[0] if int(i) in members])
+            for i in np.nonzero(keep)[0]:
                 group.add([int(i)], float(pts[i]), 'REPLACE')
         elif self.kind == 'UV':
             uv_layer = self.resolve()

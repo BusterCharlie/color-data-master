@@ -133,6 +133,19 @@ class ColorDataMasterSettings(bpy.types.PropertyGroup):
         description="Pixels to bleed outward from UV islands when writing to a texture",
         default=4, min=0, max=64,
     )
+    skip_low_weights: BoolProperty(
+        name="Skip Low Weights",
+        description="When transferring to weights, leave vertices at or below Min Weight out of "
+                    "the vertex group (removing them if they were in it) instead of adding them "
+                    "with that weight",
+        default=True,
+    )
+    min_weight: FloatProperty(
+        name="Min Weight",
+        description="Weights at or below this are left out of the vertex group. "
+                    "0 skips only zero weights; raise it to also catch near-zero values",
+        default=0.0, min=0.0, max=1.0, precision=3,
+    )
     clear_outside_uvs: BoolProperty(
         name="Clear Outside UVs",
         description="When transferring from the mesh to a texture, set the written channels "
