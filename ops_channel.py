@@ -3,10 +3,13 @@
 
 import bpy
 import numpy as np
-from bpy.props import BoolProperty, EnumProperty, FloatProperty, FloatVectorProperty, IntProperty
+from bpy.props import (
+    BoolProperty, BoolVectorProperty, EnumProperty, FloatProperty, FloatVectorProperty, IntProperty,
+    StringProperty,
+)
 
 from .core import (
-    active_target, channel_index, channel_mask, color_owner, corner_selection_mask,
+    ImageTarget, active_target, channel_index, channel_mask, color_owner, corner_selection_mask,
     isolated_info, poll_mesh,
 )
 from .data import COLOR_KINDS, Layer, convert_domain, pixel_selection_mask
@@ -463,6 +466,168 @@ class CDM_OT_swap(bpy.types.Operator):
         return {'FINISHED'}
 
 
+
+def _target_layer(context, target):
+    """The transfer Layer for an active target (color attribute or texture)."""
+    if isinstance(target, ImageTarget):
+        return Layer(context, 'IMAGE', target.image.name)
+    return Layer(context, 'ATTR', target.attr.name)
+
+
+def _group_items(self, context):
+    items = [('NONE', "None", "Leave this channel as it is")]
+    obj = context.active_object if context else None
+    if obj is not None:
+        items += [(g.name, g.name, "") for g in obj.vertex_groups]
+    return items
+
+
+class CDM_OT_pack_weights(bpy.types.Operator):
+    """Pack up to four vertex groups into the R, G, B and A channels of a color attribute or texture"""
+    bl_idname = "color_data_master.pack_weights"
+    bl_label = "Pack Weights"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    group_r: EnumProperty(name="R", items=_group_items)
+    group_g: EnumProperty(name="G", items=_group_items)
+    group_b: EnumProperty(name="B", items=_group_items)
+    group_a: EnumProperty(name="A", items=_group_items)
+    new_attribute: BoolProperty(
+        name="New Attribute", default=True,
+        description="Pack into a new color attribute instead of the color data being edited",
+    )
+    name: StringProperty(name="Name", default="Weights")
+
+    @classmethod
+    def poll(cls, context):
+        return poll_mesh(context) and len(context.active_object.vertex_groups) > 0
+
+    def invoke(self, context, event):
+        # fill the channels with the first groups, in order
+        groups = [g.name for g in context.active_object.vertex_groups]
+        for i, c in enumerate("rgba"):
+            setattr(self, f"group_{c}", groups[i] if i < len(groups) else 'NONE')
+        if active_target(context) is None:
+            self.new_attribute = True
+        return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        col = layout.column(align=True)
+        for c in "rgba":
+            col.prop(self, f"group_{c}")
+        layout.prop(self, "new_attribute")
+        if self.new_attribute:
+            layout.prop(self, "name")
+
+    def execute(self, context):
+        settings = context.scene.color_data_master
+        obj = context.active_object
+        mesh = obj.data
+        if self.new_attribute:
+            attr = mesh.color_attributes.new(self.name or "Weights", 'BYTE_COLOR', 'POINT')
+            mesh.color_attributes.active_color = attr
+            dst = Layer(context, 'ATTR', attr.name)
+        else:
+            target = active_target(context)
+            if target is None:
+                self.report({'ERROR'}, "No color attribute or paint texture to pack into")
+                return {'CANCELLED'}
+            if isolated_info(target):
+                self.report({'ERROR'}, "Apply or discard the isolated channel first")
+                return {'CANCELLED'}
+            dst = _target_layer(context, target)
+        space = settings.value_space
+        names = [getattr(self, f"group_{c}") for c in "rgba"]
+        chans = np.array([n != 'NONE' and obj.vertex_groups.get(n) is not None for n in names])
+        if not chans.any():
+            self.report({'ERROR'}, "Pick at least one vertex group")
+            return {'CANCELLED'}
+        packed = np.zeros((len(mesh.loops), 4), dtype=np.float32)
+        packed[:, 3] = 1.0
+        for i, n in enumerate(names):
+            if chans[i]:
+                packed[:, i] = Layer(context, 'VGROUP', n).read(space)[:, 0]
+        if self.new_attribute:
+            chans[:] = True  # a new layer gets 0 in unused RGB and 1 in unused A
+        src = Layer(context, 'VGROUP', names[int(np.argmax(chans))])
+        try:
+            values, mask = convert_domain(src, packed, dst, settings)
+        except ValueError as e:
+            self.report({'ERROR'}, str(e))
+            return {'CANCELLED'}
+        if dst.domain == 'PIXEL' and settings.clear_outside_uvs and corner_selection_mask(mesh) is None:
+            values[np.ix_(~mask, chans)] = 0.0
+            mask = None
+        dst.write(values, space, chans, mask)
+        return {'FINISHED'}
+
+
+class CDM_OT_unpack_weights(bpy.types.Operator):
+    """Copy channels of the color data being edited into vertex groups, one group per channel"""
+    bl_idname = "color_data_master.unpack_weights"
+    bl_label = "Unpack to Weights"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    channels: BoolVectorProperty(name="Channels", size=4, default=(True, True, True, False),
+                                 description="The channels to copy into vertex groups")
+    prefix: StringProperty(name="Prefix", description="Groups are named <prefix>_R, <prefix>_G and so on")
+
+    @classmethod
+    def poll(cls, context):
+        return poll_mesh(context) and active_target(context) is not None
+
+    def invoke(self, context, event):
+        target = active_target(context)
+        if not self.prefix:
+            self.prefix = _target_layer(context, target).name
+        self.channels = [c in context.scene.color_data_master.active_channels for c in "RGBA"]
+        return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        row = layout.row(align=True)
+        row.prop(self, "channels", text="Channels", toggle=True)
+        layout.prop(self, "prefix")
+        settings = context.scene.color_data_master
+        row = layout.row(align=True)
+        row.prop(settings, "skip_low_weights", text="")
+        sub = row.row(align=True)
+        sub.active = settings.skip_low_weights
+        sub.prop(settings, "min_weight", text="Skip Weights at or Below")
+
+    def execute(self, context):
+        settings = context.scene.color_data_master
+        target = active_target(context)
+        if isolated_info(target):
+            self.report({'ERROR'}, "Apply or discard the isolated channel first")
+            return {'CANCELLED'}
+        if not any(self.channels):
+            self.report({'ERROR'}, "Pick at least one channel")
+            return {'CANCELLED'}
+        obj = context.active_object
+        src = _target_layer(context, target)
+        prefix = self.prefix or src.name
+        space = settings.value_space
+        for i, c in enumerate("RGBA"):
+            if not self.channels[i]:
+                continue
+            name = f"{prefix}_{c}"
+            if obj.vertex_groups.get(name) is None:
+                obj.vertex_groups.new(name=name)
+            dst = Layer(context, 'VGROUP', name)
+            try:
+                values, mask = convert_domain(src, src.read(space), dst, settings)
+            except ValueError as e:
+                self.report({'ERROR'}, str(e))
+                return {'CANCELLED'}
+            only = np.zeros(4, dtype=bool)
+            only[0] = True
+            dst.write(values[:, [i, i, i, i]], space, only, mask, min_weight=min_weight(settings))
+        return {'FINISHED'}
+
 classes = (
     CDM_OT_fill,
     CDM_OT_fill_brush_color,
@@ -473,4 +638,6 @@ classes = (
     CDM_OT_blur,
     CDM_OT_transfer,
     CDM_OT_swap,
+    CDM_OT_pack_weights,
+    CDM_OT_unpack_weights,
 )
