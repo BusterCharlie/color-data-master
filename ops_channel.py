@@ -262,6 +262,8 @@ class CDM_OT_normalize_mask(ChannelOperator, bpy.types.Operator):
             ('EQUAL', "Equal", "All four channels have the same priority and are scaled to add up to 1"),
             ('REMAINDER', "Remainder", "The other three are scaled down to at most 1 in total, "
                                         "and one channel gets what is left"),
+            ('STACK', "Stack", "Channels are layered in a priority order: a higher channel takes "
+                               "its share first and the ones below it only keep what is left"),
         ],
         default='EQUAL',
     )
@@ -273,6 +275,21 @@ class CDM_OT_normalize_mask(ChannelOperator, bpy.types.Operator):
         default='NONE',
         description="Where every channel is 0, set this channel to 1",
     )
+    order_1: EnumProperty(name="Top", items=RGBA_ITEMS, default='A')
+    order_2: EnumProperty(name="2nd", items=RGBA_ITEMS, default='B')
+    order_3: EnumProperty(name="3rd", items=RGBA_ITEMS, default='G')
+    order_4: EnumProperty(name="Bottom", items=RGBA_ITEMS, default='R')
+    hard: BoolProperty(
+        name="Hard", default=False,
+        description="Clear the lower channels completely wherever a higher one is above the cutoff, "
+                    "instead of letting them keep what is left",
+    )
+    cutoff: FloatProperty(name="Cutoff", default=0.0, min=0.0, max=1.0,
+                          description="A higher channel overrides the ones below it where it is above this")
+    bottom_fills: BoolProperty(
+        name="Bottom Fills Rest", default=False,
+        description="Set the bottom channel to whatever the channels above it leave, so all four add up to 1",
+    )
 
     def draw(self, context):
         layout = self.layout
@@ -280,8 +297,17 @@ class CDM_OT_normalize_mask(ChannelOperator, bpy.types.Operator):
         layout.row().prop(self, "method", expand=True)
         if self.method == 'EQUAL':
             layout.row().prop(self, "fill", expand=True)
-        else:
+        elif self.method == 'REMAINDER':
             layout.row().prop(self, "remainder", expand=True)
+        else:
+            for i in range(1, 5):
+                layout.row().prop(self, f"order_{i}", expand=True)
+            row = layout.row()
+            row.prop(self, "hard")
+            sub = row.row()
+            sub.active = self.hard
+            sub.prop(self, "cutoff")
+            layout.prop(self, "bottom_fills")
 
     def execute(self, context):
         prep = self.setup(context)
@@ -292,8 +318,15 @@ class CDM_OT_normalize_mask(ChannelOperator, bpy.types.Operator):
             self.report({'ERROR'}, "Apply or discard the isolated channel first")
             return {'CANCELLED'}
         values = target.read(settings.value_space)
-        target.write(normalize_weights(values, self.method, self.remainder, self.fill),
-                     settings.value_space, mask=mask)
+        if self.method == 'STACK':
+            order = [getattr(self, f"order_{i}") for i in range(1, 5)]
+            if len(set(order)) != 4:
+                self.report({'ERROR'}, "Use each channel once in the stack order")
+                return {'CANCELLED'}
+            out = stack_weights(values, order, self.hard, self.cutoff, self.bottom_fills)
+        else:
+            out = normalize_weights(values, self.method, self.remainder, self.fill)
+        target.write(out, settings.value_space, mask=mask)
         return {'FINISHED'}
 
 
@@ -314,6 +347,24 @@ def normalize_weights(values, method, remainder='A', fill='NONE'):
     rest = np.where(rest_total > 1.0, rest / np.maximum(rest_total, 1e-8), rest)
     w[:, others] = rest
     w[:, r] = np.clip(1.0 - rest.sum(axis=1), 0.0, 1.0)
+    return w
+
+
+def stack_weights(values, order, hard=False, cutoff=0.0, bottom_fills=False):
+    """Layer the channels top to bottom (order = channel letters, top first) so they never add up past 1."""
+    w = np.clip(values, 0.0, 1.0).astype(np.float32)
+    idx = ["RGBA".index(c) for c in order]
+    left = np.ones(len(w), dtype=np.float32)
+    covered = np.zeros(len(w), dtype=bool)
+    for i in idx:
+        v = np.where(covered, 0.0, w[:, i]) if hard else w[:, i]
+        v = np.minimum(v, left)
+        w[:, i] = v
+        left -= v
+        if hard:
+            covered |= v > cutoff
+    if bottom_fills:
+        w[:, idx[-1]] += left
     return w
 
 

@@ -71,6 +71,7 @@ Fill, Clear, Invert, Posterize, Remap, Blur, and Random Island Values on the act
 - **Normalize Blend Mask** makes R, G, B and A add up to 1, for 4-layer terrain or material blend masks.
   - **Equal** gives all four channels the same priority. Areas where every channel is 0 stay black, or **Empty** fills them with one channel.
   - **Remainder** scales three channels down to at most 1 in total and gives what is left to the fourth (A by default).
+  - **Stack** layers the channels in a priority order you set (A, B, G, R from the top by default). Each channel only keeps what the ones above it leave, so they never add up past 1. **Hard** clears the lower channels completely wherever a higher one is above **Cutoff**, so two channels never blend in the same spot. **Bottom Fills Rest** gives the bottom channel whatever is left.
   - It works on the numbers the **Values** setting gives, so pick Linear if a shader reads the mask as blend weights.
 
 <img src="docs/images/remap_auto.png" alt="Remap with Auto Range" width="100%">
