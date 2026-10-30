@@ -92,6 +92,7 @@ Pick a source and destination from Color, Texture, Weights, UV and Normals. Mode
 - A **mesh layer to a texture** is drawn through a UV map, with padding around the UV islands.
 - A **texture to a mesh layer** is sampled at each corner's UV.
 - **Swap** exchanges a channel between two color layers or textures.
+- Into **Weights**, vertices at or below **Skip Weights at or Below** (0 by default) are left out of the vertex group, so it only holds the vertices that carry weight. Untick it to add every vertex.
 
 <img src="docs/images/transfer_bake.png" alt="Vertex colors baked to a texture with Transfer" width="100%">
 

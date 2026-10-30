@@ -149,6 +149,12 @@ def draw_transfer(context, layout, settings):
         col.prop(settings, "bake_padding")
         if settings.dst_kind == 'IMAGE':
             col.prop(settings, "clear_outside_uvs")
+    if settings.dst_kind == 'VGROUP':
+        row = layout.row(align=True)
+        row.prop(settings, "skip_low_weights", text="")
+        sub = row.row(align=True)
+        sub.active = settings.skip_low_weights
+        sub.prop(settings, "min_weight", text="Skip Weights at or Below")
 
 
 def draw_misc(context, layout, settings, target, pie=False):

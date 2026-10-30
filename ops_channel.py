@@ -34,6 +34,11 @@ def blend(s, d, mode):
     return s + d * 0.0  # REPLACE, broadcast to d's shape
 
 
+def min_weight(settings):
+    """Threshold for Layer.write on vertex groups, or None to keep every vertex."""
+    return settings.min_weight if settings.skip_low_weights else None
+
+
 def edit_mask(context, target, settings):
     """Selection mask for the target in its own domain, only in paint modes."""
     obj = context.active_object
@@ -410,7 +415,7 @@ class CDM_OT_transfer(bpy.types.Operator):
             outside = ~mask
             out[np.ix_(outside, chans)] = 0.0
             mask = None
-        dst.write(out, space, chans, mask)
+        dst.write(out, space, chans, mask, min_weight=min_weight(settings))
         return {'FINISHED'}
 
 
