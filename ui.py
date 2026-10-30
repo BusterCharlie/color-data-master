@@ -155,6 +155,9 @@ def draw_transfer(context, layout, settings):
         sub = row.row(align=True)
         sub.active = settings.skip_low_weights
         sub.prop(settings, "min_weight", text="Skip Weights at or Below")
+    row = layout.row(align=True)
+    row.operator("color_data_master.pack_weights", text="Pack Weights", icon='GROUP_VERTEX')
+    row.operator("color_data_master.unpack_weights", text="Unpack", icon='GROUP_VCOL')
 
 
 def draw_misc(context, layout, settings, target, pie=False):
