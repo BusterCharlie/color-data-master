@@ -6,7 +6,7 @@ from bpy.props import (
     IntProperty, StringProperty,
 )
 
-from .core import active_target, color_owner, isolated_info, value_to_linear
+from .core import active_target, color_owner, isolated_info, paint_image, value_to_linear
 from .data import LAYER_KINDS
 
 CHANNEL_ITEMS = (
@@ -42,13 +42,34 @@ def _dst_channel_items(self, context):
     return KIND_CHANNEL_ITEMS[self.dst_kind]
 
 
-def _clamp_channel(side):
+def _default_layer_name(context, kind):
+    """The active layer of a kind, so a type switch doesn't leave a name of the old type."""
+    obj = context.active_object if context else None
+    if obj is None or obj.type != 'MESH':
+        return ""
+    if kind == 'ATTR':
+        attr = obj.data.color_attributes.active_color
+        return attr.name if attr else ""
+    if kind == 'VGROUP':
+        group = obj.vertex_groups.active
+        return group.name if group else ""
+    if kind == 'UV':
+        uv = obj.data.uv_layers.active
+        return uv.name if uv else ""
+    if kind == 'IMAGE':
+        img = paint_image(context, obj)
+        return img.name if img else ""
+    return ""
+
+
+def _kind_changed(side):
     def update(self, context):
         prop = f"{side}_channel"
         kind = getattr(self, f"{side}_kind")
         count = len(KIND_CHANNEL_ITEMS[kind])
         if self.get(prop, 0) >= count:
             self[prop] = 0
+        self[f"{side}_name"] = _default_layer_name(context, kind)
     return update
 
 
@@ -192,11 +213,11 @@ class ColorDataMasterSettings(bpy.types.PropertyGroup):
 
     # -- transfer -------------------------------------------------------
     src_kind: EnumProperty(name="Source Type", items=LAYER_KINDS, default='ATTR',
-                           update=_clamp_channel("src"))
+                           update=_kind_changed("src"))
     src_name: StringProperty(name="Source")
     src_channel: EnumProperty(name="Source Channel", items=_src_channel_items, default=0)
     dst_kind: EnumProperty(name="Destination Type", items=LAYER_KINDS, default='ATTR',
-                           update=_clamp_channel("dst"))
+                           update=_kind_changed("dst"))
     dst_name: StringProperty(name="Destination")
     dst_channel: EnumProperty(name="Destination Channel", items=_dst_channel_items, default=1)
     transfer_mode: EnumProperty(name="Mode", items=TRANSFER_MODE_ITEMS, default='CHANNEL')
