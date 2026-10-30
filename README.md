@@ -93,9 +93,10 @@ Pick a source and destination from Color, Texture, Weights, UV and Normals. Mode
 - A **mesh layer to a texture** is drawn through a UV map, with padding around the UV islands.
 - A **texture to a mesh layer** is sampled at each corner's UV.
 - **Swap** exchanges a channel between two color layers or textures.
+- The button beside the source and destination reverses the direction. Changing a layer type picks that type's active layer, so an old name is never left behind.
 - Into **Weights**, vertices at or below **Skip Weights at or Below** (0 by default) are left out of the vertex group, so it only holds the vertices that carry weight. Untick it to add every vertex.
-- **Pack Weights** puts up to four vertex groups into R, G, B and A, in a new byte color attribute (one value per vertex) or in the color data being edited, including a texture. It starts with the first four groups in order.
-- **Unpack** does the reverse: it copies the chosen channels of the color data being edited into vertex groups named `<name>_R`, `<name>_G` and so on, creating them if needed.
+- **Pack Weights** puts up to four vertex groups into R, G, B and A, in a new color attribute (one value per vertex) or in the color data being edited, including a texture. If there are groups named like `Mask_R`, `Mask_G` (from Unpack Color) it starts with those, otherwise with the first four groups in order. A new attribute is Float by default, which keeps the weights exact; Byte rounds to 1/255 and, being stored as sRGB, looks darker in the viewport than the same numbers in a float layer.
+- **Unpack Color** does the reverse: it copies the chosen channels of the color data being edited into vertex groups named `<name>_R`, `<name>_G` and so on, creating them if needed.
 
 <img src="docs/images/transfer_bake.png" alt="Vertex colors baked to a texture with Transfer" width="100%">
 

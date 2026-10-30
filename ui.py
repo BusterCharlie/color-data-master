@@ -121,9 +121,11 @@ def draw_channels(context, layout, settings, target):
 
 def draw_transfer(context, layout, settings):
     col = layout.column(align=True)
+    pickers = col.row(align=True)
+    rows = pickers.column(align=True)
     for side in ("src", "dst"):
         kind = getattr(settings, f"{side}_kind")
-        row = col.row(align=True)
+        row = rows.row(align=True)
         row.prop(settings, f"{side}_kind", text="", icon_only=True)
         # weights hold one value, so there is no channel to pick
         sub = row if kind == 'VGROUP' else row.split(factor=0.78, align=True)
@@ -134,6 +136,9 @@ def draw_transfer(context, layout, settings):
             sub.label(text="Custom Normals")
         if kind != 'VGROUP':
             sub.prop(settings, f"{side}_channel", text="")
+    rev = pickers.column(align=True)
+    rev.scale_y = 2.0
+    rev.operator("color_data_master.reverse_transfer", text="", icon='UV_SYNC_SELECT')
     col = layout.column(align=True)
     row = col.row(align=True)
     row.prop(settings, "transfer_mode", text="")
@@ -157,7 +162,7 @@ def draw_transfer(context, layout, settings):
         sub.prop(settings, "min_weight", text="Skip Weights at or Below")
     row = layout.row(align=True)
     row.operator("color_data_master.pack_weights", text="Pack Weights", icon='GROUP_VERTEX')
-    row.operator("color_data_master.unpack_weights", text="Unpack", icon='GROUP_VCOL')
+    row.operator("color_data_master.unpack_weights", text="Unpack Color", icon='GROUP_VCOL')
 
 
 def draw_misc(context, layout, settings, target, pie=False):

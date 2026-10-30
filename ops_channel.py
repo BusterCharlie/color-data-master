@@ -13,7 +13,7 @@ from .core import (
     isolated_info, poll_mesh,
 )
 from .data import COLOR_KINDS, Layer, convert_domain, pixel_selection_mask
-from .props import kind_channel
+from .props import KIND_CHANNEL_ITEMS, kind_channel
 from . import texture
 
 LUMA = np.array([0.299, 0.587, 0.114], dtype=np.float32)
@@ -473,6 +473,25 @@ class CDM_OT_transfer(bpy.types.Operator):
         return {'FINISHED'}
 
 
+class CDM_OT_reverse_transfer(bpy.types.Operator):
+    """Swap the source and destination, to transfer back the other way"""
+    bl_idname = "color_data_master.reverse_transfer"
+    bl_label = "Reverse Direction"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        s = context.scene.color_data_master
+        # channels as raw indices: a Weights side has no channel identifier to read back
+        src = (s.src_kind, s.src_name, s.get("src_channel", 0))
+        dst = (s.dst_kind, s.dst_name, s.get("dst_channel", 1))
+        # kinds first: their update picks a default name, which is then overwritten
+        s.src_kind, s.dst_kind = dst[0], src[0]
+        s.src_name, s.dst_name = dst[1], src[1]
+        for side, kind, channel in (("src", dst[0], dst[2]), ("dst", src[0], src[2])):
+            s[f"{side}_channel"] = min(channel, len(KIND_CHANNEL_ITEMS[kind]) - 1)
+        return {'FINISHED'}
+
+
 class CDM_OT_swap(bpy.types.Operator):
     """Swap the source and destination channels"""
     bl_idname = "color_data_master.swap"
@@ -533,6 +552,16 @@ def _group_items(self, context):
     return items
 
 
+def _packed_sets(groups):
+    """Prefixes with <prefix>_R/_G/_B/_A groups, most complete first: {prefix: {channel: name}}."""
+    sets = {}
+    for name in groups:
+        head, sep, tail = name.rpartition("_")
+        if sep and head and tail in ("R", "G", "B", "A"):
+            sets.setdefault(head, {})[tail] = name
+    return sorted(sets.items(), key=lambda kv: -len(kv[1]))
+
+
 class CDM_OT_pack_weights(bpy.types.Operator):
     """Pack up to four vertex groups into the R, G, B and A channels of a color attribute or texture"""
     bl_idname = "color_data_master.pack_weights"
@@ -548,16 +577,31 @@ class CDM_OT_pack_weights(bpy.types.Operator):
         description="Pack into a new color attribute instead of the color data being edited",
     )
     name: StringProperty(name="Name", default="Weights")
+    data_type: EnumProperty(
+        name="Type",
+        items=[('FLOAT_COLOR', "Float", "Stores the weights exactly, as linear values"),
+               ('BYTE_COLOR', "Byte", "8 bits per channel, stored as sRGB: weights round to 1/255 "
+                                      "and look darker in the viewport than in a float layer")],
+        default='FLOAT_COLOR',
+    )
 
     @classmethod
     def poll(cls, context):
         return poll_mesh(context) and len(context.active_object.vertex_groups) > 0
 
     def invoke(self, context, event):
-        # fill the channels with the first groups, in order
         groups = [g.name for g in context.active_object.vertex_groups]
-        for i, c in enumerate("rgba"):
-            setattr(self, f"group_{c}", groups[i] if i < len(groups) else 'NONE')
+        sets = _packed_sets(groups)
+        if sets:
+            # groups named like an earlier Unpack: <prefix>_R, _G, _B, _A
+            prefix, chans = sets[0]
+            for c in "RGBA":
+                setattr(self, f"group_{c.lower()}", chans.get(c, 'NONE'))
+            self.name = prefix
+        else:
+            # otherwise the first four groups, in order
+            for i, c in enumerate("rgba"):
+                setattr(self, f"group_{c}", groups[i] if i < len(groups) else 'NONE')
         if active_target(context) is None:
             self.new_attribute = True
         return context.window_manager.invoke_props_dialog(self)
@@ -571,13 +615,14 @@ class CDM_OT_pack_weights(bpy.types.Operator):
         layout.prop(self, "new_attribute")
         if self.new_attribute:
             layout.prop(self, "name")
+            layout.row().prop(self, "data_type", expand=True)
 
     def execute(self, context):
         settings = context.scene.color_data_master
         obj = context.active_object
         mesh = obj.data
         if self.new_attribute:
-            attr = mesh.color_attributes.new(self.name or "Weights", 'BYTE_COLOR', 'POINT')
+            attr = mesh.color_attributes.new(self.name or "Weights", self.data_type, 'POINT')
             mesh.color_attributes.active_color = attr
             dst = Layer(context, 'ATTR', attr.name)
         else:
@@ -618,7 +663,7 @@ class CDM_OT_pack_weights(bpy.types.Operator):
 class CDM_OT_unpack_weights(bpy.types.Operator):
     """Copy channels of the color data being edited into vertex groups, one group per channel"""
     bl_idname = "color_data_master.unpack_weights"
-    bl_label = "Unpack to Weights"
+    bl_label = "Unpack Color"
     bl_options = {'REGISTER', 'UNDO'}
 
     channels: BoolVectorProperty(name="Channels", size=4, default=(True, True, True, False),
@@ -688,6 +733,7 @@ classes = (
     CDM_OT_normalize_mask,
     CDM_OT_blur,
     CDM_OT_transfer,
+    CDM_OT_reverse_transfer,
     CDM_OT_swap,
     CDM_OT_pack_weights,
     CDM_OT_unpack_weights,
